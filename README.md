@@ -6,6 +6,8 @@ This repository contains an unofficial implementation of the paper: "DiffusionAD
 
 DiffusionAD introduces a novel technique to improve the anomaly detection task by applying denoising diffusion models. By employing this method, the model can discern between normal and abnormal data effectively, with improved performance on various datasets. This project replicates the research paper's methodology using Python.
 
+Not Completed!!
+
 ## Requirements
 
 To run this project, you'll need the following packages:
