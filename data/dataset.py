@@ -51,9 +51,7 @@ class MVTecAD(Dataset):
         self.transform = transforms.Compose(
             [
                 transforms.ToTensor(),
-                transforms.Normalize(
-                    mean=mean std=std
-                ),
+                transforms.Normalize(mean=mean, std=std),
             ]
         )
 
@@ -106,7 +104,7 @@ class MVTecAD(Dataset):
         img_gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
 
         # generate binary mask of gray scale image
-        _, target_background_mask = cv2.threshold( #srcm thresh, maxval, type, dst
+        _, target_background_mask = cv2.threshold(  # srcm thresh, maxval, type, dst
             img_gray, 100, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU
         )
         target_background_mask = target_background_mask.astype(np.int_)

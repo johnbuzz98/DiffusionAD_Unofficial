@@ -1,0 +1,53 @@
+SEED: 42
+EXP_NAME: "Diffusion AD MVTecAD_tile"
+DEVICE: "cuda:0"
+
+DATASET:
+  name: "MVTecAD"
+  datadir: "/data/mvtec_ad/"
+  target: "tile"
+  resize: 256
+  texture_source_dir: "./dataset/dtd/images"
+  structure_grid_size: 8
+  transparency_range: [0.15, 1.0]
+  perlin_scale: 6
+  min_perlin_scale: 0
+  perlin_noise_threshold: 0.5
+  textual_or_structural: "textual"
+  self_aug: "self-augmentation"
+  use_mask: False
+  bg_threshold: null
+  bg_reverse: null
+  mean: [0.4563, 0.4709, 0.4478]
+  std: [0.1201, 0.1328, 0.1279]
+
+DATALOADER:
+ batch_size: 4
+  num_workers: 4
+
+TRAIN:
+  use_wandb: True
+  num_training_steps: 5000
+  l1_weight: 1.0
+  focal_weight: 10
+  focal_gamma: 2.0
+  focal_alpha: 0.25
+
+OPTIMIZER:
+  lr: 0.0001
+  weight_decay: 0.0005
+
+LOG:
+  log_interval: 1
+  eval_interval: 100
+
+RESULT:
+  savedir: "./saved_model"
+
+Denoising:
+  image_channels: 3
+  n_channels: 128
+  channel_multipliers: [1, 2, 2, 2, 2]
+  is_attention: [False, False, True, True, True]
+  n_blocks: 2
+  n_steps: 1000

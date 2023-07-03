@@ -109,17 +109,19 @@ def run(cfg):
         gamma=cfg["TRAIN"]["focal_gamma"], alpha=cfg["TRAIN"]["focal_alpha"]
     )
 
-    denoising_optimizer = torch.optim.Adam(
-        params=filter(lambda p: p.requires_grad, denosing_subnet.parameters()),
-        lr=cfg["OPTIMIZER"]["lr"],  # 1e-4
-        weight_decay=cfg["OPTIMIZER"]["weight_decay"],
+    params_to_optimize = []
+    params_to_optimize += list(
+        filter(lambda p: p.requires_grad, denosing_subnet.parameters())
     )
-    segement_optimizer = torch.optim.Adam(
-        params=filter(lambda p: p.requires_grad, segment_subnet.parameters()),
-        lr=cfg["OPTIMIZER"]["lr"],  # 1e-4
-        weight_decay=cfg["OPTIMIZER"]["weight_decay"],
+    params_to_optimize += list(
+        filter(lambda p: p.requires_grad, segment_subnet.parameters())
     )
 
+    optimizer = torch.optim.Adam(
+        params=params_to_optimize,
+        lr=cfg["OPTIMIZER"]["lr"],
+        weight_decay=cfg["OPTIMIZER"]["weight_decay"],
+    )
     # Fitting model
     training(
         model=[denosing_subnet, segment_subnet],
@@ -128,7 +130,7 @@ def run(cfg):
         validloader=testloader,
         criterion=[mse_criterion, sml1_criterion, focal_criterion],
         loss_weights=[cfg["TRAIN"]["l1_weight"], cfg["TRAIN"]["focal_weight"]],
-        optimizer=[denoising_optimizer, segement_optimizer],
+        optimizer=optimizer,
         log_interval=cfg["LOG"]["log_interval"],
         eval_interval=cfg["LOG"]["eval_interval"],
         savedir=savedir,

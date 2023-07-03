@@ -1,0 +1,53 @@
+SEED: 42
+EXP_NAME: "Diffusion AD MVTecAD_pill"
+DEVICE: "cuda:0"
+
+DATASET:
+  name: "MVTecAD"
+  datadir: "/data/mvtec_ad/"
+  target: "pill"
+  resize: 256
+  texture_source_dir: "./dataset/dtd/images"
+  structure_grid_size: 8
+  transparency_range: [0.15, 1.0]
+  perlin_scale: 6
+  min_perlin_scale: 0
+  perlin_noise_threshold: 0.5
+  textual_or_structural: "structural"
+  self_aug: "self-augmentation"
+  use_mask: True
+  bg_threshold: 100
+  bg_reverse: True
+  mean: [0.3023, 0.3028, 0.3246]
+  std: [0.304 , 0.304 , 0.2865]
+
+DATALOADER:
+ batch_size: 4
+  num_workers: 4
+
+TRAIN:
+  use_wandb: True
+  num_training_steps: 5000
+  l1_weight: 1.0
+  focal_weight: 10
+  focal_gamma: 2.0
+  focal_alpha: 0.25
+
+OPTIMIZER:
+  lr: 0.0001
+  weight_decay: 0.0005
+
+LOG:
+  log_interval: 1
+  eval_interval: 100
+
+RESULT:
+  savedir: "./saved_model"
+
+Denoising:
+  image_channels: 3
+  n_channels: 128
+  channel_multipliers: [1, 2, 2, 2, 2]
+  is_attention: [False, False, True, True, True]
+  n_blocks: 2
+  n_steps: 1000
