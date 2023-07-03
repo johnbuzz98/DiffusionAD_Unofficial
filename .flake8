@@ -1,0 +1,24 @@
+[flake8]
+enable-extensions = G
+select = B,C,E,F,G,P,SIM1,T4,W,B9
+max-line-length = 120
+max-complexity = 18
+# C408 ignored because we like the dict keyword argument syntax
+# E501 is not flexible enough, we're using B950 instead
+ignore =
+    E203,E305,E402,E501,E721,E741,F405,F821,F841,F999,W503,W504,C408,E302,W291,E303,
+    SIM105,SIM108,SIM110,SIM111,SIM113,SIM114,SIM115,SIM116,SIM117,SIM118,SIM119,SIM12,
+    # flake8-simplify code styles
+    SIM102,SIM103,SIM106,SIM112,
+    PLE1101,PLW0106 #cv2 error
+per-file-ignores =
+    __init__.py: F401
+optional-ascii-coding = True
+exclude =
+    .git,
+    .gitignore,
+    *.pot,
+    *.py[co],
+    __pycache__,
+    venv,
+    .env
