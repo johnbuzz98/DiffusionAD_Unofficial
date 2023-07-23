@@ -1,6 +1,7 @@
 from typing import List
 
 from torch.utils.data import DataLoader
+from torch.utils.data.sampler import Sampler
 
 from .dataset import MVTecAD, VisA
 
@@ -11,29 +12,38 @@ def instantiate_dataset(
     target: str,
     train: bool,
     img_size: int,
-    texture_source_dir: str = "./dataset/dtd/images",
-    grid_size: int = 8,
-    perlin_scale: int = 6,
-    min_perlin_scale: int = 0,
-    perlin_noise_threshold: float = 0.5,
-    textual_or_structural: str = "structural",
-    transparency_range: List[float] = [0.15, 1.0],
     self_aug: str = "self-augmentation",
+    normalize: bool = False,
 ):
     return dataset_class(
         datadir=datadir,
         target=target,
         train=train,
         img_size=img_size,
-        texture_source_dir=texture_source_dir,
-        grid_size=grid_size,
-        perlin_scale=perlin_scale,
-        min_perlin_scale=min_perlin_scale,
-        perlin_noise_threshold=perlin_noise_threshold,
-        textual_or_structural=textual_or_structural,
-        transparency_range=transparency_range,
         self_aug=self_aug,
+        normalize=normalize,
     )
+
+
+class StratifiedBatchSampler(Sampler):
+    def __init__(self, anomaly_indices, non_anomaly_indices, batch_size):
+        self.anomaly_indices = anomaly_indices
+        self.non_anomaly_indices = non_anomaly_indices
+        self.batch_size = batch_size
+
+    def __iter__(self):
+        anomaly_batches = len(self.anomaly_indices) // (self.batch_size // 2)
+        for _ in range(anomaly_batches):
+            anomaly_sample = random.sample(self.anomaly_indices, self.batch_size // 2)
+            non_anomaly_sample = random.sample(
+                self.non_anomaly_indices, self.batch_size // 2
+            )
+            batch = list(anomaly_sample + non_anomaly_sample)
+            random.shuffle(batch)
+            yield batch
+
+    def __len__(self):
+        return len(self.anomaly_indices) // (self.batch_size // 2)
 
 
 def create_dataset(datasetname: str, *args, **kwargs):
@@ -46,8 +56,18 @@ def create_dataset(datasetname: str, *args, **kwargs):
 
 
 def create_dataloader(
-    dataset, is_training: bool, batch_size: int = 16, num_workers: int = 1
+    dataset, is_training: bool, batch_size: int = 6, num_workers: int = 1
 ):
-    return DataLoader(
-        dataset, shuffle=is_training, batch_size=batch_size, num_workers=num_workers
-    )
+    if is_training:
+        anomaly_indices = dataset.anomaly_indices
+        non_anomaly_indices = dataset.non_anomaly_indices
+        sampler = StratifiedBatchSampler(
+            anomaly_indices, non_anomaly_indices, batch_size
+        )
+        return DataLoader(
+            dataset,
+            sampler=sampler,
+            batch_size=batch_size,
+            num_workers=num_workers,
+        )
+    return DataLoader(dataset, batch_size=batch_size, num_workers=num_workers)

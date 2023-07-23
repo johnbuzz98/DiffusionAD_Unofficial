@@ -1,0 +1,227 @@
+{
+    "hazelnut": {
+        "use_mask": true,
+        "bg_threshold": 50,
+        "bg_reverse": true,
+        "mean": [
+            0.2401,
+            0.1768,
+            0.1713
+        ],
+        "std": [
+            0.1648,
+            0.0726,
+            0.0413
+        ]
+    },
+    "leather": {
+        "use_mask": false,
+        "bg_threshold": null,
+        "bg_reverse": null,
+        "mean": [
+            0.3912,
+            0.2622,
+            0.2195
+        ],
+        "std": [
+            0.0546,
+            0.0364,
+            0.0271
+        ]
+    },
+    "metal_nut": {
+        "use_mask": true,
+        "bg_threshold": 40,
+        "bg_reverse": true,
+        "mean": [
+            0.2143,
+            0.2365,
+            0.2382
+        ],
+        "std": [
+            0.158,
+            0.18,
+            0.1518
+        ]
+    },
+    "tile": {
+        "use_mask": false,
+        "bg_threshold": null,
+        "bg_reverse": null,
+        "mean": [
+            0.4567,
+            0.4713,
+            0.4482
+        ],
+        "std": [
+            0.117,
+            0.1292,
+            0.1247
+        ]
+    },
+    "wood": {
+        "use_mask": false,
+        "bg_threshold": null,
+        "bg_reverse": null,
+        "mean": [
+            0.6701,
+            0.4768,
+            0.3493
+        ],
+        "std": [
+            0.0731,
+            0.0612,
+            0.0434
+        ]
+    },
+    "grid": {
+        "use_mask": false,
+        "bg_threshold": null,
+        "bg_reverse": null,
+        "mean": [
+            0.4478,
+            0.4478,
+            0.4478
+        ],
+        "std": [
+            0.1565,
+            0.1565,
+            0.1565
+        ]
+    },
+    "cable": {
+        "use_mask": true,
+        "bg_threshold": 150,
+        "bg_reverse": true,
+        "mean": [
+            0.3262,
+            0.4143,
+            0.4665
+        ],
+        "std": [
+            0.1524,
+            0.2141,
+            0.2378
+        ]
+    },
+    "capsule": {
+        "use_mask": true,
+        "bg_threshold": 120,
+        "bg_reverse": false,
+        "mean": [
+            0.6968,
+            0.6668,
+            0.654
+        ],
+        "std": [
+            0.2375,
+            0.2584,
+            0.2598
+        ]
+    },
+    "transistor": {
+        "use_mask": true,
+        "bg_threshold": 90,
+        "bg_reverse": false,
+        "mean": [
+            0.3865,
+            0.2763,
+            0.2414
+        ],
+        "std": [
+            0.2055,
+            0.1428,
+            0.1165
+        ]
+    },
+    "carpet": {
+        "use_mask": false,
+        "bg_threshold": null,
+        "bg_reverse": null,
+        "mean": [
+            0.363,
+            0.35,
+            0.3561
+        ],
+        "std": [
+            0.1447,
+            0.1394,
+            0.1272
+        ]
+    },
+    "bottle": {
+        "use_mask": true,
+        "bg_threshold": 250,
+        "bg_reverse": false,
+        "mean": [
+            0.5354,
+            0.5317,
+            0.548
+        ],
+        "std": [
+            0.3667,
+            0.3666,
+            0.3499
+        ]
+    },
+    "screw": {
+        "use_mask": true,
+        "bg_threshold": 110,
+        "bg_reverse": false,
+        "mean": [
+            0.7222,
+            0.7222,
+            0.7222
+        ],
+        "std": [
+            0.1318,
+            0.1318,
+            0.1318
+        ]
+    },
+    "zipper": {
+        "use_mask": true,
+        "bg_threshold": 100,
+        "bg_reverse": false,
+        "mean": [
+            0.4011,
+            0.4011,
+            0.4011
+        ],
+        "std": [
+            0.3229,
+            0.3229,
+            0.3229
+        ]
+    },
+    "pill": {
+        "use_mask": true,
+        "bg_threshold": 100,
+        "bg_reverse": true,
+        "mean": [
+            0.3026,
+            0.3031,
+            0.325
+        ],
+        "std": [
+            0.304,
+            0.304,
+            0.2862
+        ]
+    },
+    "toothbrush": {
+        "use_mask": true,
+        "bg_threshold": 30,
+        "bg_reverse": true,
+        "mean": [
+            0.1993,
+            0.1853,
+            0.1929
+        ],
+        "std": [
+            0.2283,
+            0.214,
+            0.1929
+        ]
+    }
+}

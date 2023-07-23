@@ -1,0 +1,182 @@
+{
+    "candle": {
+        "mean": [
+            0.4723,
+            0.3628,
+            0.2433
+        ],
+        "std": [
+            0.3826,
+            0.3343,
+            0.251
+        ],
+        "use_mask": true,
+        "bg_threshold": 50,
+        "bg_reverse": true
+    },
+    "capsules": {
+        "mean": [
+            0.4759,
+            0.5397,
+            0.4218
+        ],
+        "std": [
+            0.1594,
+            0.1482,
+            0.2207
+        ],
+        "use_mask": true,
+        "bg_threshold": 1000,
+        "bg_reverse": false
+    },
+    "cashew": {
+        "mean": [
+            0.2579,
+            0.21,
+            0.1459
+        ],
+        "std": [
+            0.264,
+            0.2033,
+            0.1245
+        ],
+        "use_mask": true,
+        "bg_threshold": 100,
+        "bg_reverse": true
+    },
+    "chewinggum": {
+        "mean": [
+            0.2781,
+            0.2567,
+            0.2245
+        ],
+        "std": [
+            0.3076,
+            0.2872,
+            0.267
+        ],
+        "use_mask": true,
+        "bg_threshold": 50,
+        "bg_reverse": true
+    },
+    "fryum": {
+        "mean": [
+            0.3542,
+            0.5563,
+            0.4321
+        ],
+        "std": [
+            0.2657,
+            0.1286,
+            0.1246
+        ],
+        "use_mask": true,
+        "bg_threshold": 50,
+        "bg_reverse": true
+    },
+    "macaroni1": {
+        "mean": [
+            0.2327,
+            0.343,
+            0.1729
+        ],
+        "std": [
+            0.2637,
+            0.1106,
+            0.0545
+        ],
+        "use_mask": true,
+        "bg_threshold": 100,
+        "bg_reverse": true
+    },
+    "macaroni2": {
+        "mean": [
+            0.1898,
+            0.4837,
+            0.3528
+        ],
+        "std": [
+            0.2499,
+            0.1326,
+            0.0934
+        ],
+        "use_mask": true,
+        "bg_threshold": 100,
+        "bg_reverse": true
+    },
+    "pcb1": {
+        "mean": [
+            0.485,
+            0.513,
+            0.5216
+        ],
+        "std": [
+            0.1816,
+            0.1701,
+            0.1778
+        ],
+        "use_mask": true,
+        "bg_threshold": 100,
+        "bg_reverse": true
+    },
+    "pcb2": {
+        "mean": [
+            0.3165,
+            0.3587,
+            0.3773
+        ],
+        "std": [
+            0.1754,
+            0.1559,
+            0.1693
+        ],
+        "use_mask": true,
+        "bg_threshold": 100,
+        "bg_reverse": true
+    },
+    "pcb3": {
+        "mean": [
+            0.1958,
+            0.461,
+            0.2906
+        ],
+        "std": [
+            0.1664,
+            0.1214,
+            0.1798
+        ],
+        "use_mask": true,
+        "bg_threshold": 50,
+        "bg_reverse": true
+    },
+    "pcb4": {
+        "mean": [
+            0.1894,
+            0.2072,
+            0.2182
+        ],
+        "std": [
+            0.1868,
+            0.1809,
+            0.1959
+        ],
+        "use_mask": true,
+        "bg_threshold": 50,
+        "bg_reverse": true
+    },
+    "pipe_fryum": {
+        "mean": [
+            0.1331,
+            0.1144,
+            0.0941
+        ],
+        "std": [
+            0.1905,
+            0.153,
+            0.1206
+        ],
+        "use_mask": true,
+        "bg_threshold": 50,
+        "bg_reverse": true
+    }
+}

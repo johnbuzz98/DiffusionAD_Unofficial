@@ -8,25 +8,32 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import wandb
-from accelerate import Accelerator, DistributedType
 from anomalib.utils.metrics import AUPRO, AUROC
 
 _logger = logging.getLogger("train")
 
 
 class AverageMeter:
-    """Computes and stores the average and current value"""
+    """Class for computing and storing average and current values."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.reset()
 
-    def reset(self):
-        self.val = 0
-        self.avg = 0
-        self.sum = 0
+    def reset(self) -> None:
+        """Resets all internal values."""
+        self.val = 0.0
+        self.avg = 0.0
+        self.sum = 0.0
         self.count = 0
 
-    def update(self, val, n=1):
+    def update(self, val: float, n: int = 1) -> None:
+        """
+        Update the internal values with new input data.
+
+        Args:
+            val (float): The new value to be added.
+            n (int, optional): The weight of the new value. Defaults to 1.
+        """
         self.val = val
         self.sum += val * n
         self.count += n
@@ -46,9 +53,8 @@ def training(
     log_interval: int = 1,
     eval_interval: int = 1,
     savedir: str = None,
-    device: str = "cpu",
     use_wandb: bool = False,
-    accelerator: Accelerator = None,
+    device: str = "cpu",
 ) -> dict:
     batch_time_m = AverageMeter()
     data_time_m = AverageMeter()
@@ -62,20 +68,7 @@ def training(
     auroc_pixel_metric = AUROC(num_classes=1, pos_label=1)
     aupro_pixel_metric = AUPRO()
 
-    # criterion
-    mse_criterion, sml1_criterion, focal_criterion = criterion
-    mse_weight, sml1_weight, focal_weight = loss_weights
-
-    # optimizer
-    denoise_optimizer, segmentation_optimizer = optimizer
-
-    # diffusion_scheduler
-
-    # set train mode
     denoising_subnet, segmentation_subnet = model
-    denoising_subnet.train()
-    segmentation_subnet.train()
-
     # set optimizer
     optimizer.zero_grad()
 
@@ -84,8 +77,10 @@ def training(
     step = 0
     train_mode = True
     while train_mode:
+        denoising_subnet.train()
+        segmentation_subnet.train()
         end = time.time()
-        for inputs, masks, targets in trainloader:
+        for batch_idx, (inputs, masks, targets) in enumerate(trainloader):
             # batch
             inputs, masks, targets = (
                 inputs.to(device),
@@ -95,19 +90,17 @@ def training(
 
             data_time_m.update(time.time() - end)
 
-            # Denoising Loss (MSE)
-            noise = torch.randn(inputs.shape, dtype=(torch.float32)).to(device)
-            timesteps = torch.randint(1, 1000, (inputs.shape[0],)).long().to(device)
-            noisy_images = diffusion_scheduler.add_noise(inputs, noise, timesteps)
-            noise_pred = model(noisy_images, timesteps).sample
-            mse_loss = mse_criterion(noise_pred, noise)
+            # predict noise (timestep should be between 100 ~ 200)
+            pred_noise, noise = denoising_subnet.loss(inputs)
+            mse_loss = mse_criterion(pred_noise, noise)
 
-            # One Step Denoising
-            denoised_result = diffusion_scheduler.onestep_denoise(
-                inputs, noise, timesteps, noise_pred
-            ).to(device)
+            # denoise
+            noised_result = denoising_subnet.q_sample(inputs, denoising_subnet.t)
+            denoised_input = denoising_subnet.p_sample(
+                noised_result, denoising_subnet.t
+            )
 
-            joined_in = torch.cat((inputs, denoised_result), dim=1)
+            joined_in = torch.cat((inputs, denoised_input), dim=1)
             out_mask = segmentation_subnet(joined_in)
             out_mask_sm = torch.softmax(out_mask, dim=1)
 

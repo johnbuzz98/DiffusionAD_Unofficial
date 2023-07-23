@@ -1,5 +1,4 @@
 import argparse
-import json
 import logging
 import os
 
@@ -7,12 +6,14 @@ import torch
 import torch.nn as nn
 import wandb
 import yaml
-from scheduler import CosineAnnealingWarmupRestarts
+from accelerate import Accelerator, DistributedType
+from diffusers import DDPMScheduler, UNet2DModel
 
 from data import create_dataloader, create_dataset
 from focal_loss import FocalLoss
 from log import setup_default_logging
-from model import DenoiseDiffusion, DiscriminativeSubNetwork, UNet
+from model import DiscriminativeSubNetwork
+from scheduler import CosineAnnealingWarmupRestarts
 from train import training
 from utils import torch_seed
 
@@ -20,132 +21,146 @@ _logger = logging.getLogger("train")
 
 
 def run(cfg):
-    # setting seed and device
     setup_default_logging()
     torch_seed(cfg["SEED"])
 
-    device = "cuda:0" if torch.cuda.is_available() else "cpu"
-    _logger.info("Device: {}".format(device))
+    accelerator = Accelerator(fp16=cfg.get("USE_FP16", False))
+    device = accelerator.device
+    _logger.info(f"Device: {device}")
 
-    # savedir
-    cfg["EXP_NAME"] = cfg["EXP_NAME"] + f"-{cfg['DATASET']['target']}"
+    cfg["EXP_NAME"] = f"{cfg['EXP_NAME']}-{cfg['DATASET']['target']}"
     savedir = os.path.join(cfg["RESULT"]["savedir"], cfg["EXP_NAME"])
     os.makedirs(savedir, exist_ok=True)
 
-    # wandb
     if cfg["TRAIN"]["use_wandb"]:
+        import wandb
+
         wandb.init(name=cfg["EXP_NAME"], project="Diffsuion_AD", config=cfg)
 
-    # build datasets
-    trainset = create_dataset(
-        cfg["DATASET"]["name"],
-        datadir=cfg["DATASET"]["datadir"],
-        target=cfg["DATASET"]["target"],
-        train=True,
-        img_size=cfg["DATASET"]["resize"],
-        texture_source_dir=cfg["DATASET"]["texture_source_dir"],
-        grid_size=cfg["DATASET"]["structure_grid_size"],
-        transparency_range=cfg["DATASET"]["transparency_range"],
-        perlin_scale=cfg["DATASET"]["perlin_scale"],
-        min_perlin_scale=cfg["DATASET"]["min_perlin_scale"],
-        perlin_noise_threshold=cfg["DATASET"]["perlin_noise_threshold"],
-        textual_or_structural=cfg["DATASET"]["textual_or_structural"],
-        self_aug=cfg["DATASET"]["self_aug"],
+    dataset_args = {
+        key: cfg["DATASET"][key]
+        for key in ["name", "datadir", "target", "resize", "self_aug", "normalize"]
+    }
+
+    datasets = [
+        create_dataset(train=train_flag, **dataset_args) for train_flag in [True, False]
+    ]
+
+    dataloader_args = {
+        key: cfg["DATALOADER"][key] for key in ["batch_size", "num_workers"]
+    }
+
+    dataloaders = [
+        create_dataloader(dataset=dataset, is_training=is_training, **dataloader_args)
+        for dataset, is_training in zip(datasets, [True, False])
+    ]
+
+    trainloader, testloader = dataloaders
+
+    ddpm_scheduler = (
+        DDPMScheduler(
+            num_train_timesteps=1000, beta_schedule="linear", prediction_type="epsilon"
+        ),
     )
 
-    testset = create_dataset(
-        cfg["DATASET"]["name"],
-        datadir=cfg["DATASET"]["datadir"],
-        target=cfg["DATASET"]["target"],
-        train=False,
-        img_size=cfg["DATASET"]["resize"],
-        texture_source_dir=cfg["DATASET"]["texture_source_dir"],
-        grid_size=cfg["DATASET"]["structure_grid_size"],
-        transparency_range=cfg["DATASET"]["transparency_range"],
-        perlin_scale=cfg["DATASET"]["perlin_scale"],
-        min_perlin_scale=cfg["DATASET"]["min_perlin_scale"],
-        perlin_noise_threshold=cfg["DATASET"]["perlin_noise_threshold"],
-    )
+    denoising_subnet = UNet2DModel(
+        sample_size=(cfg["DATASET"]["resize"], cfg["DATASET"]["resize"]),
+        down_block_types=(
+            "DownBlock2D",
+            "DownBlock2D",
+            "AttnDownBlock2D",
+            "AttnDownBlock2D",
+            "AttnDownBlock2D",
+        ),
+        up_block_types=(
+            "AttnUpBlock2D",
+            "AttnUpBlock2D",
+            "AttnUpBlock2D",
+            "UpBlock2D",
+            "UpBlock2D",
+        ),
+        block_out_channels=(
+            128,
+            256,
+            256,
+            512,
+            512,
+        ),
+        attention_head_dim=4,
+    ).to(device)
 
-    # build dataloader
-    trainloader = create_dataloader(
-        dataset=trainset,
-        is_training=True,
-        batch_size=cfg["DATALOADER"]["batch_size"],
-        num_workers=cfg["DATALOADER"]["num_workers"],
-    )
+    segment_subnet = DiscriminativeSubNetwork(in_channels=6, out_channels=2).to(device)
 
-    testloader = create_dataloader(
-        dataset=testset,
-        is_training=False,
-        batch_size=cfg["DATALOADER"]["batch_size"],
-        num_workers=cfg["DATALOADER"]["num_workers"],
-    )
+    criterions = [
+        nn.MSELoss(),
+        nn.SmoothL1Loss(),
+        FocalLoss(gamma=cfg["TRAIN"]["focal_gamma"], alpha=cfg["TRAIN"]["focal_alpha"]),
+    ]
 
-    # Denoising Sub-network
-    # epsmodel
-    eps_model = UNet(
-        image_channels=cfg["Denoising"]["image_channels"],  # 3
-        n_channels=cfg["Denoising"]["n_channels"],  # 128
-        ch_mults=cfg["Denoising"]["channel_multipliers"],  # [1, 2, 2, 2, 2]
-        is_attn=cfg["Denoising"]["is_attention"],  # [False, Fa;lse, True, True, True]
-        n_blocks=cfg["Denoising"]["n_blocks"],  # 2
-    ).to(cfg["device"])
-
-    denosing_subnet = DenoiseDiffusion(
-        eps_model=eps_model,
-        n_steps=cfg["Denoising"]["n_steps"],
-        device=cfg["device"],
-    ).to(cfg["device"])
-
-    # Segmentation Sub-network
-    segment_subnet = DiscriminativeSubNetwork(in_channels=6, out_channels=2).to(
-        cfg["device"]
-    )
-    # Set training
-    mse_criterion = nn.MSELoss()
-    sml1_criterion = nn.SmoothL1Loss()
-    focal_criterion = FocalLoss(
-        gamma=cfg["TRAIN"]["focal_gamma"], alpha=cfg["TRAIN"]["focal_alpha"]
-    )
-
-    params_to_optimize = []
-    params_to_optimize += list(
-        filter(lambda p: p.requires_grad, denosing_subnet.parameters())
-    )
-    params_to_optimize += list(
-        filter(lambda p: p.requires_grad, segment_subnet.parameters())
-    )
+    params_to_optimize = [
+        p
+        for model in [denoising_subnet, segment_subnet]
+        for p in model.parameters()
+        if p.requires_grad
+    ]
 
     optimizer = torch.optim.Adam(
         params=params_to_optimize,
         lr=cfg["OPTIMIZER"]["lr"],
         weight_decay=cfg["OPTIMIZER"]["weight_decay"],
     )
-    # Fitting model
+
+    scheduler = (
+        CosineAnnealingWarmupRestarts(
+            optimizer,
+            first_cycle_steps=cfg["TRAIN"]["num_training_steps"],
+            max_lr=cfg["OPTIMIZER"]["lr"],
+            min_lr=cfg["SCHEDULER"]["min_lr"],
+            warmup_steps=int(
+                cfg["TRAIN"]["num_training_steps"] * cfg["SCHEDULER"]["warmup_ratio"]
+            ),
+        )
+        if cfg["SCHEDULER"]["use_scheduler"]
+        else None
+    )
+
+    # prepare to acclelerate
+    (
+        trainloader,
+        testloader,
+        denoising_subnet,
+        segment_subnet,
+        optimizer,
+    ) = accelerator.prepare(
+        trainloader, testloader, denoising_subnet, segment_subnet, optimizer
+    )
     training(
-        model=[denosing_subnet, segment_subnet],
+        diffusion_scheduler=ddpm_scheduler,
+        model=[denoising_subnet, segment_subnet],
         num_training_steps=cfg["TRAIN"]["num_training_steps"],
         trainloader=trainloader,
         validloader=testloader,
-        criterion=[mse_criterion, sml1_criterion, focal_criterion],
+        criterion=criterions,
         loss_weights=[cfg["TRAIN"]["l1_weight"], cfg["TRAIN"]["focal_weight"]],
         optimizer=optimizer,
+        scheduler=scheduler,
         log_interval=cfg["LOG"]["log_interval"],
         eval_interval=cfg["LOG"]["eval_interval"],
         savedir=savedir,
         device=device,
         use_wandb=cfg["TRAIN"]["use_wandb"],
+        accelerator=accelerator,
     )
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Diffusion AD")
-    parser.add_argument("--yaml_config", type=str, default=None, help="exp config file")
-
+    parser.add_argument(
+        "--yaml_config", type=str, required=True, help="exp config file"
+    )
     args = parser.parse_args()
 
-    # config
-    cfg = yaml.load(open(args.yaml_config, "r"), Loader=yaml.FullLoader)
+    with open(args.yaml_config, "r") as f:
+        cfg = yaml.safe_load(f)
 
     run(cfg)
