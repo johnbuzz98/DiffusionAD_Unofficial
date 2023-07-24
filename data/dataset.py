@@ -135,10 +135,13 @@ class MVTecAD(Dataset):
                 .replace("test", "ground_truth")
                 .replace(".png", "_mask.png")
             )
-            try:
-                mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
-                mask = cv2.resize(mask, dsize=self.img_size).astype(bool).astype(int)
-            except:
+            if os.path.exists(mask_path):
+                try:
+                    mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+                    mask = cv2.resize(mask, dsize=self.img_size).astype(bool).astype(int)
+                except:
+                    mask = np.zeros(self.img_size).astype(bool).astype(int)
+            else:
                 mask = np.zeros(self.img_size).astype(bool).astype(int)
 
         img, mask = img / 255.0, mask / 255.0

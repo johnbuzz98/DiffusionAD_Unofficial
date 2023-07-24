@@ -163,3 +163,5 @@ cython_debug/
 dataset/
 /src
 /wandb
+secrets_.py
+/result

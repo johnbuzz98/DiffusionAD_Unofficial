@@ -14,6 +14,7 @@ from focal_loss import FocalLoss
 from log import setup_default_logging
 from model import DDPMScheduler, DiscriminativeSubNetwork
 from scheduler import CosineAnnealingWarmupRestarts
+from secrets_ import secrets as sc
 from train import training
 from utils import torch_seed
 
@@ -36,7 +37,11 @@ def run(conf):
     if conf.TRAIN.use_wandb:
         accelerator.init_trackers(
             project_name="Diffsuion_AD",
-            config=conf,
+            init_kwargs={
+                "wandb": {
+                    "entity": sc["wandb_entity"],
+                }
+            },
         )
 
     dataset_args = {
@@ -109,6 +114,7 @@ def run(conf):
         lr=conf.OPTIMIZER.lr,
         weight_decay=conf.OPTIMIZER.weight_decay,
     )
+    conf.TRAIN.num_training_steps = len(trainloader) * conf.TRAIN.num_epochs
 
     scheduler = (
         CosineAnnealingWarmupRestarts(
@@ -137,7 +143,7 @@ def run(conf):
     training(
         diffusion_scheduler=ddpm_scheduler,
         model=[denoising_subnet, segment_subnet],
-        num_training_steps=conf.TRAIN.num_training_steps,
+        num_epochs=conf.TRAIN.num_epochs,
         trainloader=trainloader,
         validloader=testloader,
         criterion=criterions,

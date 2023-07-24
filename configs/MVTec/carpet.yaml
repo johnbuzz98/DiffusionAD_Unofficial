@@ -18,7 +18,7 @@ TRAIN:
   use_wandb: True # True if using Weights and Biases for logging
   focal_gamma: 2.0 # Focal loss gamma parameter
   focal_alpha: 0.25 # Focal loss alpha parameter
-  num_training_steps: 10000
+  num_epochs: 500
   mse_weight: 0.5
   sml1_weight: 0.5
   focal_weight: 0.5
@@ -34,7 +34,7 @@ SCHEDULER:
 
 LOG:
   log_interval: 100 # Log every 100 steps
-  eval_interval: 1000 # Evaluate every 1000 steps
+  eval_interval: 100 # Evaluate every 1000 steps
 
 RESULT:
   savedir: "./result/mvtec_ad/carpet" # Directory where results will be saved
