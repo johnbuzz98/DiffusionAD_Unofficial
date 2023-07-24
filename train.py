@@ -7,9 +7,10 @@ from typing import List
 import numpy as np
 import torch
 import torch.nn.functional as F
-import wandb
 from accelerate import Accelerator, DistributedType
 from anomalib.utils.metrics import AUPRO, AUROC
+
+import wandb
 
 _logger = logging.getLogger("train")
 
@@ -66,11 +67,6 @@ def training(
     mse_criterion, sml1_criterion, focal_criterion = criterion
     mse_weight, sml1_weight, focal_weight = loss_weights
 
-    # optimizer
-    denoise_optimizer, segmentation_optimizer = optimizer
-
-    # diffusion_scheduler
-
     # set train mode
     denoising_subnet, segmentation_subnet = model
     denoising_subnet.train()
@@ -97,9 +93,9 @@ def training(
 
             # Denoising Loss (MSE)
             noise = torch.randn(inputs.shape, dtype=(torch.float32)).to(device)
-            timesteps = torch.randint(1, 1000, (inputs.shape[0],)).long().to(device)
+            timesteps = torch.randint(100, 200, (inputs.shape[0],)).long().to(device)
             noisy_images = diffusion_scheduler.add_noise(inputs, noise, timesteps)
-            noise_pred = model(noisy_images, timesteps).sample
+            noise_pred = denoising_subnet(noisy_images, timesteps).sample
             mse_loss = mse_criterion(noise_pred, noise)
 
             # One Step Denoising
@@ -117,14 +113,11 @@ def training(
                 (sml1_weight * sml1_loss) + (focal_weight * focal_loss)
             )
 
-            loss.backward()
-
+            # loss.backward()
+            accelerator.backward(loss)
             # update weight
-            denoise_optimizer.step()
-            denoise_optimizer.zero_grad()
-
-            segmentation_optimizer.step()
-            segmentation_optimizer.zero_grad()
+            optimizer.step()
+            optimizer.zero_grad()
 
             # log loss
             mse_losses_m.update(mse_loss.item())
@@ -136,7 +129,7 @@ def training(
 
             # wandb
             if use_wandb:
-                wandb.log(
+                accelerator.log(
                     {
                         "lr": optimizer.param_groups[0]["lr"],
                         "train_mse_loss": mse_losses_m.val,
@@ -191,7 +184,7 @@ def training(
 
                 # wandb
                 if use_wandb:
-                    wandb.log(eval_log, step=step)
+                    accelerator.log(eval_log, step=step)
 
                 # checkpoint
                 if best_score < np.mean(list(eval_metrics.values())):

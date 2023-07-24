@@ -123,8 +123,12 @@ class MVTecAD(Dataset):
         # Determine target
         target = 0 if "good" in str(file_path) else 1
 
-        if self.train and idx in self.anomaly_indices:
-            img, mask = self.anomaly_synthesis(img)
+        if self.train:
+            if idx in self.anomaly_indices:
+                img, mask = self.anomaly_synthesis(img)
+                target = 1
+            else:
+                mask = np.zeros(self.img_size).astype(bool).astype(int)
         else:
             mask_path = (
                 str(file_path)
@@ -139,7 +143,7 @@ class MVTecAD(Dataset):
 
         img, mask = img / 255.0, mask / 255.0
         img = self.transform(img).to(torch.float32)
-        mask = torch.Tensor(mask).to(torch.int32)
+        mask = torch.Tensor(mask).to(torch.int64)
 
         return img, mask, target
 
@@ -470,7 +474,7 @@ class VisA(Dataset):
         img = cv2.resize(img, dsize=self.img_size)
 
         # mask
-        if self.train and idx in self.anomaly_indices::
+        if self.train and idx in self.anomaly_indices:
             img, mask = self.anomaly_synthesis(img)
             target = 0
         else:
@@ -485,7 +489,7 @@ class VisA(Dataset):
 
         img, mask = img / 255.0, mask / 255.0
         img = self.transform(img).to(torch.float32)
-        mask = torch.Tensor(mask).to(torch.int32)
+        mask = torch.Tensor(mask).to(torch.int64)
 
         return img, mask, target
 

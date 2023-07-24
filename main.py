@@ -4,15 +4,15 @@ import os
 
 import torch
 import torch.nn as nn
-import wandb
 import yaml
 from accelerate import Accelerator, DistributedType
-from diffusers import DDPMScheduler, UNet2DModel
+from diffusers import UNet2DModel
+from omegaconf import OmegaConf
 
 from data import create_dataloader, create_dataset
 from focal_loss import FocalLoss
 from log import setup_default_logging
-from model import DiscriminativeSubNetwork
+from model import DDPMScheduler, DiscriminativeSubNetwork
 from scheduler import CosineAnnealingWarmupRestarts
 from train import training
 from utils import torch_seed
@@ -20,26 +20,28 @@ from utils import torch_seed
 _logger = logging.getLogger("train")
 
 
-def run(cfg):
+def run(conf):
     setup_default_logging()
-    torch_seed(cfg["SEED"])
+    torch_seed(conf.SEED)
 
-    accelerator = Accelerator(fp16=cfg.get("USE_FP16", False))
+    accelerator = Accelerator(log_with="wandb" if conf.TRAIN.use_wandb else None)
     device = accelerator.device
+    conf.DATALOADER.num_workers = accelerator.num_processes
     _logger.info(f"Device: {device}")
 
-    cfg["EXP_NAME"] = f"{cfg['EXP_NAME']}-{cfg['DATASET']['target']}"
-    savedir = os.path.join(cfg["RESULT"]["savedir"], cfg["EXP_NAME"])
+    conf.EXP_NAME = f"{conf.EXP_NAME}.-{conf.DATASET.target}"
+    savedir = os.path.join(conf["RESULT"]["savedir"], conf["EXP_NAME"])
     os.makedirs(savedir, exist_ok=True)
 
-    if cfg["TRAIN"]["use_wandb"]:
-        import wandb
-
-        wandb.init(name=cfg["EXP_NAME"], project="Diffsuion_AD", config=cfg)
+    if conf.TRAIN.use_wandb:
+        accelerator.init_trackers(
+            project_name="Diffsuion_AD",
+            config=conf,
+        )
 
     dataset_args = {
-        key: cfg["DATASET"][key]
-        for key in ["name", "datadir", "target", "resize", "self_aug", "normalize"]
+        key: conf["DATASET"][key]
+        for key in ["name", "datadir", "target", "img_size", "self_aug", "normalize"]
     }
 
     datasets = [
@@ -47,7 +49,7 @@ def run(cfg):
     ]
 
     dataloader_args = {
-        key: cfg["DATALOADER"][key] for key in ["batch_size", "num_workers"]
+        key: conf["DATALOADER"][key] for key in ["batch_size", "num_workers"]
     }
 
     dataloaders = [
@@ -55,16 +57,14 @@ def run(cfg):
         for dataset, is_training in zip(datasets, [True, False])
     ]
 
-    trainloader, testloader = dataloaders
+    trainloader, testloader = dataloaders[0], dataloaders[1]
 
-    ddpm_scheduler = (
-        DDPMScheduler(
-            num_train_timesteps=1000, beta_schedule="linear", prediction_type="epsilon"
-        ),
+    ddpm_scheduler = DDPMScheduler(
+        num_train_timesteps=1000, beta_schedule="linear", prediction_type="epsilon"
     )
 
     denoising_subnet = UNet2DModel(
-        sample_size=(cfg["DATASET"]["resize"], cfg["DATASET"]["resize"]),
+        sample_size=(conf.DATASET.img_size, conf.DATASET.img_size),
         down_block_types=(
             "DownBlock2D",
             "DownBlock2D",
@@ -94,7 +94,7 @@ def run(cfg):
     criterions = [
         nn.MSELoss(),
         nn.SmoothL1Loss(),
-        FocalLoss(gamma=cfg["TRAIN"]["focal_gamma"], alpha=cfg["TRAIN"]["focal_alpha"]),
+        FocalLoss(gamma=conf.TRAIN.focal_gamma, alpha=conf.TRAIN.focal_alpha),
     ]
 
     params_to_optimize = [
@@ -106,21 +106,21 @@ def run(cfg):
 
     optimizer = torch.optim.Adam(
         params=params_to_optimize,
-        lr=cfg["OPTIMIZER"]["lr"],
-        weight_decay=cfg["OPTIMIZER"]["weight_decay"],
+        lr=conf.OPTIMIZER.lr,
+        weight_decay=conf.OPTIMIZER.weight_decay,
     )
 
     scheduler = (
         CosineAnnealingWarmupRestarts(
             optimizer,
-            first_cycle_steps=cfg["TRAIN"]["num_training_steps"],
-            max_lr=cfg["OPTIMIZER"]["lr"],
-            min_lr=cfg["SCHEDULER"]["min_lr"],
+            first_cycle_steps=conf.TRAIN.num_training_steps,
+            max_lr=conf.OPTIMIZER.lr,
+            min_lr=conf.SCHEDULER.min_lr,
             warmup_steps=int(
-                cfg["TRAIN"]["num_training_steps"] * cfg["SCHEDULER"]["warmup_ratio"]
+                conf.TRAIN.num_training_steps * conf.SCHEDULER.warmup_ratio
             ),
         )
-        if cfg["SCHEDULER"]["use_scheduler"]
+        if conf.SCHEDULER.use_scheduler
         else None
     )
 
@@ -137,18 +137,22 @@ def run(cfg):
     training(
         diffusion_scheduler=ddpm_scheduler,
         model=[denoising_subnet, segment_subnet],
-        num_training_steps=cfg["TRAIN"]["num_training_steps"],
+        num_training_steps=conf.TRAIN.num_training_steps,
         trainloader=trainloader,
         validloader=testloader,
         criterion=criterions,
-        loss_weights=[cfg["TRAIN"]["l1_weight"], cfg["TRAIN"]["focal_weight"]],
+        loss_weights=[
+            conf.TRAIN.mse_weight,
+            conf.TRAIN.sml1_weight,
+            conf.TRAIN.focal_weight,
+        ],
         optimizer=optimizer,
         scheduler=scheduler,
-        log_interval=cfg["LOG"]["log_interval"],
-        eval_interval=cfg["LOG"]["eval_interval"],
+        log_interval=conf.LOG.log_interval,
+        eval_interval=conf.LOG.eval_interval,
         savedir=savedir,
         device=device,
-        use_wandb=cfg["TRAIN"]["use_wandb"],
+        use_wandb=conf.TRAIN.use_wandb,
         accelerator=accelerator,
     )
 
@@ -160,7 +164,6 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    with open(args.yaml_config, "r") as f:
-        cfg = yaml.safe_load(f)
+    conf = OmegaConf.load(args.yaml_config)
 
-    run(cfg)
+    run(conf)

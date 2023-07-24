@@ -1,3 +1,4 @@
+import random
 from typing import List
 
 from torch.utils.data import DataLoader
@@ -40,17 +41,18 @@ class StratifiedBatchSampler(Sampler):
             )
             batch = list(anomaly_sample + non_anomaly_sample)
             random.shuffle(batch)
-            yield batch
+            for idx in batch:
+                yield idx
 
     def __len__(self):
         return len(self.anomaly_indices) // (self.batch_size // 2)
 
 
-def create_dataset(datasetname: str, *args, **kwargs):
+def create_dataset(name: str, *args, **kwargs):
     dataset_classes = {"MVTecAD": MVTecAD, "VisA": VisA}
-    dataset_class = dataset_classes.get(datasetname)
+    dataset_class = dataset_classes.get(name)
     if not dataset_class:
-        raise ValueError(f"Invalid dataset name: {datasetname}")
+        raise ValueError(f"Invalid dataset name: {name}")
 
     return instantiate_dataset(dataset_class, *args, **kwargs)
 
@@ -70,4 +72,5 @@ def create_dataloader(
             batch_size=batch_size,
             num_workers=num_workers,
         )
-    return DataLoader(dataset, batch_size=batch_size, num_workers=num_workers)
+    else:
+        return DataLoader(dataset, batch_size=batch_size, num_workers=num_workers)
