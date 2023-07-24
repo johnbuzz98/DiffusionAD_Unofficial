@@ -1,11 +1,11 @@
 SEED: 42
 
-EXP_NAME: "Diffusion AD MVTecAD_cable"
+EXP_NAME: "Diffusion AD VisA_pipe_fryum"
 
 DATASET:
-  name: "MVTecAD"
-  datadir: "./dataset/mvtec_ad/"
-  target: "cable" # Specify target name
+  name: "VisA"
+  datadir: "./dataset/VisA/"
+  target: "pipe_fryum" # Specify target name
   img_size: 256 # This could be any integer, depending on your use-case
   self_aug: "self-augmentation"
   normalize: False
@@ -37,4 +37,4 @@ LOG:
   eval_interval: 1000 # Evaluate every 1000 steps
 
 RESULT:
-  savedir: "./result/mvtec_ad/cable" # Directory where results will be saved
+  savedir: "./result/VisA/pipe_fryum" # Directory where results will be saved

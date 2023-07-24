@@ -1,53 +1,40 @@
 SEED: 42
+
 EXP_NAME: "Diffusion AD MVTecAD_leather"
-DEVICE: "cuda:0"
 
 DATASET:
   name: "MVTecAD"
-  datadir: "/data/mvtec_ad/"
-  target: "leather"
-  resize: 256
-  texture_source_dir: "./dataset/dtd/images"
-  structure_grid_size: 8
-  transparency_range: [0.15, 1.0]
-  perlin_scale: 6
-  min_perlin_scale: 0
-  perlin_noise_threshold: 0.5
-  textual_or_structural: "textual"
+  datadir: "./dataset/mvtec_ad/"
+  target: "leather" # Specify target name
+  img_size: 256 # This could be any integer, depending on your use-case
   self_aug: "self-augmentation"
-  use_mask: False
-  bg_threshold: null
-  bg_reverse: null
-  mean: [0.3907, 0.2617, 0.219]
-  std: [0.0594, 0.0399, 0.0296]
+  normalize: False
 
 DATALOADER:
- batch_size: 4
+  batch_size: 6
   num_workers: 4
 
 TRAIN:
-  use_wandb: True
-  num_training_steps: 5000
-  l1_weight: 1.0
-  focal_weight: 10
-  focal_gamma: 2.0
-  focal_alpha: 0.25
+  use_wandb: True # True if using Weights and Biases for logging
+  focal_gamma: 2.0 # Focal loss gamma parameter
+  focal_alpha: 0.25 # Focal loss alpha parameter
+  num_training_steps: 10000
+  mse_weight: 0.5
+  sml1_weight: 0.5
+  focal_weight: 0.5
 
 OPTIMIZER:
-  lr: 0.0001
+  lr: 0.0001 # Learning rate
   weight_decay: 0.0005
 
+SCHEDULER:
+  use_scheduler: True
+  min_lr: 0.00001
+  warmup_ratio: 0.1
+
 LOG:
-  log_interval: 1
-  eval_interval: 100
+  log_interval: 100 # Log every 100 steps
+  eval_interval: 1000 # Evaluate every 1000 steps
 
 RESULT:
-  savedir: "./saved_model"
-
-Denoising:
-  image_channels: 3
-  n_channels: 128
-  channel_multipliers: [1, 2, 2, 2, 2]
-  is_attention: [False, False, True, True, True]
-  n_blocks: 2
-  n_steps: 1000
+  savedir: "./result/mvtec_ad/leather" # Directory where results will be saved

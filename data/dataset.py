@@ -346,8 +346,12 @@ class MVTecAD(Dataset):
             augmented_image = cv2.resize(augmented_image, dsize=self.img_size)
         else:
             augmented_image = source_img.copy()
-
-        augmented_image = self.randAugmenter()(images=source_img)
+        # 256 256 3 -> 3 256 256
+        augmented_image = self.randAugmenter()(
+            images=rearrange(source_img, "h w c -> c h w")
+        )
+        # 3 256 256 -> 256 256 3
+        augmented_image = rearrange(augmented_image, "c h w -> h w c")
         augmented_image = self.random_arrange(augmented_image)
 
         # Blend image and anomaly source
@@ -692,8 +696,8 @@ class VisA(Dataset):
             augmented_image = cv2.resize(augmented_image, dsize=self.img_size)
         else:
             augmented_image = source_img.copy()
-
-        augmented_image = self.randAugmenter()(images=source_img)
+        # 3 256 256 -> 256 256 3
+        augmented_image = rearrange(augmented_image, "c h w -> h w c")
         augmented_image = self.random_arrange(augmented_image)
 
         # Blend image and anomaly source
