@@ -20,7 +20,7 @@ do
         for class in "${visA_classes[@]}"
         do
             # Modify the below line based on your requirements and system setup
-            echo "Dataset: $dataset, Class: $class"
+            
             accelerate launch main.py --yaml_config "./configs/$dataset/$class.yaml"
         done
     fi
