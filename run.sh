@@ -1,19 +1,27 @@
-dataset_list = 'MVTec VisA'
-mvtec_ad_list = 'bottle cable capsule carpet grid hazelnut leather metal nut pill screw tile toothbrush transistor wood zipper'
-VisA_list = 'candle, capsules, cashew, chewinggum, fryum, macaroni1, macaroni2, pcb1, pcb2, pcb3, pcb4, pipe_fryum'
+#!/bin/bash
+
+dataset_list='MVTec VisA'
+MVTec_list='bottle cable capsule carpet grid hazelnut leather metal nut pill screw tile toothbrush transistor wood zipper'
+VisA_list='candle, capsules, cashew, chewinggum, fryum, macaroni1, macaroni2, pcb1, pcb2, pcb3, pcb4, pipe_fryum'
 
 for dataset in $dataset_list
 do
-    if dataset == 'mvtec_ad'
+    if [ "$dataset" == 'MVTec' ]
     then
-        for class in $mvtec_ad_list
+        for class in $MVTec_list
         do
-            accelerate launch main.py --yaml_config ./configs/$dataset/$class.yaml
+            # Modify the below line based on your requirements and system setup
+            echo "Dataset: $dataset, Class: $class"
+            accelerate launch main.py --yaml_config "./configs/$dataset/$class.yaml"
         done
-    elif dataset == 'VisA'
+    elif [ "$dataset" == 'VisA' ]
     then
-        for class in $VisA_list
+        IFS=', ' read -r -a visA_classes <<< "$VisA_list"
+        for class in "${visA_classes[@]}"
         do
-            accelerate launch main.py --yaml_config ./configs/$dataset/$class.yaml
+            # Modify the below line based on your requirements and system setup
+            echo "Dataset: $dataset, Class: $class"
+            accelerate launch main.py --yaml_config "./configs/$dataset/$class.yaml"
         done
     fi
+done
