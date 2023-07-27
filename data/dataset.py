@@ -126,6 +126,7 @@ class MVTecAD(Dataset):
         if self.train:
             if idx in self.anomaly_indices:
                 img, mask = self.anomaly_synthesis(img)
+                mask = mask.astype(bool).astype(int)
                 target = 1
             else:
                 mask = np.zeros(self.img_size).astype(bool).astype(int)
@@ -138,13 +139,15 @@ class MVTecAD(Dataset):
             if os.path.exists(mask_path):
                 try:
                     mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
-                    mask = cv2.resize(mask, dsize=self.img_size).astype(bool).astype(int)
+                    mask = (
+                        cv2.resize(mask, dsize=self.img_size).astype(bool).astype(int)
+                    )
                 except:
                     mask = np.zeros(self.img_size).astype(bool).astype(int)
             else:
                 mask = np.zeros(self.img_size).astype(bool).astype(int)
 
-        img, mask = img / 255.0, mask / 255.0
+        img = img / 255.0
         img = self.transform(img).to(torch.float32)
         mask = torch.Tensor(mask).to(torch.int64)
 
@@ -483,7 +486,8 @@ class VisA(Dataset):
         # mask
         if self.train and idx in self.anomaly_indices:
             img, mask = self.anomaly_synthesis(img)
-            target = 0
+            mask = mask.astype(bool).astype(int)
+            target = 1
         else:
             if self.file_df["label"][idx] == "normal":
                 target = 0
@@ -494,7 +498,7 @@ class VisA(Dataset):
                 mask = mask[:, :, 0]
                 target = 1
 
-        img, mask = img / 255.0, mask / 255.0
+        img = img / 255.0
         img = self.transform(img).to(torch.float32)
         mask = torch.Tensor(mask).to(torch.int64)
 

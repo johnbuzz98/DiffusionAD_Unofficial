@@ -34,7 +34,7 @@ SCHEDULER:
 
 LOG:
   log_interval: 100 # Log every 100 steps
-  eval_interval: 100 # Evaluate every 1000 steps
+  eval_interval: 1000 # Evaluate every 1000 steps
 
 RESULT:
   savedir: "./result/mvtec_ad/carpet" # Directory where results will be saved

@@ -4,8 +4,7 @@ import os
 
 import torch
 import torch.nn as nn
-import yaml
-from accelerate import Accelerator, DistributedType
+from accelerate import Accelerator
 from diffusers import UNet2DModel
 from omegaconf import OmegaConf
 
@@ -30,7 +29,6 @@ def run(conf):
     conf.DATALOADER.num_workers = accelerator.num_processes
     _logger.info(f"Device: {device}")
 
-    conf.EXP_NAME = f"{conf.EXP_NAME}.-{conf.DATASET.target}"
     savedir = os.path.join(conf["RESULT"]["savedir"], conf["EXP_NAME"])
     os.makedirs(savedir, exist_ok=True)
 
@@ -40,6 +38,7 @@ def run(conf):
             init_kwargs={
                 "wandb": {
                     "entity": sc["wandb_entity"],
+                    "name": conf.EXP_NAME,
                 }
             },
         )
@@ -144,6 +143,7 @@ def run(conf):
         diffusion_scheduler=ddpm_scheduler,
         model=[denoising_subnet, segment_subnet],
         num_epochs=conf.TRAIN.num_epochs,
+        num_training_steps=conf.TRAIN.num_training_steps,
         trainloader=trainloader,
         validloader=testloader,
         criterion=criterions,

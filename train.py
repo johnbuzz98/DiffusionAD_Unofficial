@@ -7,10 +7,10 @@ from typing import List
 import numpy as np
 import torch
 import torch.nn.functional as F
-from accelerate import Accelerator, DistributedType
-from anomalib.utils.metrics import AUPRO, AUROC
+from accelerate import Accelerator
+from sklearn.metrics import roc_auc_score
 
-import wandb
+from metrics import compute_pro, trapezoid
 
 _logger = logging.getLogger("train")
 
@@ -37,13 +37,14 @@ class AverageMeter:
 def training(
     diffusion_scheduler,
     model,
-    trainloader,
-    validloader,
-    criterion,
-    optimizer,
-    scheduler,
     num_epochs: int = 500,
+    num_training_steps: int = 1000,
+    trainloader: torch.utils.data.DataLoader = None,
+    validloader: torch.utils.data.DataLoader = None,
+    criterion: List[torch.nn.Module] = None,
     loss_weights: List[float] = [0.5, 0.5, 0.5],
+    optimizer: torch.optim.Optimizer = None,
+    scheduler: torch.optim.lr_scheduler._LRScheduler = None,
     log_interval: int = 1,
     eval_interval: int = 1,
     savedir: str = None,
@@ -57,11 +58,6 @@ def training(
     mse_losses_m = AverageMeter()
     sml1_losses_m = AverageMeter()
     focal_losses_m = AverageMeter()
-
-    # metrics
-    auroc_image_metric = AUROC(num_classes=1, pos_label=1)
-    auroc_pixel_metric = AUROC(num_classes=1, pos_label=1)
-    aupro_pixel_metric = AUPRO()
 
     # criterion
     mse_criterion, sml1_criterion, focal_criterion = criterion
@@ -79,7 +75,6 @@ def training(
     best_score = 0
     step = 0
     train_mode = True
-    num_training_steps = num_epochs * len(trainloader)
     for epoch in range(num_epochs):  # while train_mode:
         end = time.time()
         for inputs, masks, targets in trainloader:
@@ -94,7 +89,7 @@ def training(
 
             # Denoising Loss (MSE)
             noise = torch.randn(inputs.shape, dtype=(torch.float32)).to(device)
-            timesteps = torch.randint(1, 1000, (inputs.shape[0],)).long().to(device)
+            timesteps = torch.randint(100, 200, (inputs.shape[0],)).long().to(device)
             noisy_images = diffusion_scheduler.add_noise(inputs, noise, timesteps)
             noise_pred = denoising_subnet(noisy_images, timesteps).sample
             mse_loss = mse_criterion(noise_pred, noise)
@@ -132,7 +127,6 @@ def training(
             if use_wandb:
                 accelerator.log(
                     {
-                        "epoch": epoch,
                         "lr": optimizer.param_groups[0]["lr"],
                         "train_mse_loss": mse_losses_m.val,
                         "train_sml1_loss": sml1_losses_m.val,
@@ -173,11 +167,6 @@ def training(
                     model=model,
                     dataloader=validloader,
                     diffusion_scheduler=diffusion_scheduler,
-                    metrics=[
-                        auroc_image_metric,
-                        auroc_pixel_metric,
-                        aupro_pixel_metric,
-                    ],
                     device=device,
                 )
                 denoising_subnet.train()
@@ -234,17 +223,16 @@ def training(
     json.dump(state, open(os.path.join(savedir, "latest_score.json"), "w"), indent="\t")
 
 
-def evaluate(
-    model, dataloader, diffusion_scheduler, metrics: list, device: str = "cpu"
-):
+def evaluate(model, dataloader, diffusion_scheduler, device: str = "cpu"):
     denoising_subnet, segmentation_subnet = model
-    # metrics
-    auroc_image_metric, auroc_pixel_metric, aupro_pixel_metric = metrics
+    # targets and outputs
+    image_targets = []
+    image_masks = []
+    anomaly_score = []
+    anomaly_map = []
 
-    # reset
-    auroc_image_metric.reset()
-    auroc_pixel_metric.reset()
-    aupro_pixel_metric.reset()
+    # aupro
+    integration_limit = 0.3
 
     denoising_subnet.eval()
     segmentation_subnet.eval()
@@ -269,22 +257,32 @@ def evaluate(
             joined_in = torch.cat((inputs, denoised_result), dim=1)
             out_mask = segmentation_subnet(joined_in)
             outputs = F.softmax(out_mask, dim=1)
-            anomaly_score = torch.topk(
+            anomaly_score_i = torch.topk(
                 torch.flatten(outputs[:, 1, :], start_dim=1), 50
             )[0].mean(dim=1)
 
-            # update metrics
-            # auroc_image_metric.update(preds=anomaly_score.cpu(), target=targets.cpu())
-            # auroc_pixel_metric.update(preds=outputs[:, 1, :].cpu(), target=masks.cpu())
-            # aupro_pixel_metric.update(preds=outputs[:, 1, :].cpu(), target=masks.cpu())
-            auroc_image_metric.update(preds=anomaly_score, target=targets)
-            auroc_pixel_metric.update(preds=outputs[:, 1, :], target=masks)
-            aupro_pixel_metric.update(preds=outputs[:, 1, :], target=masks)
+            # stack targets and outputs
+            image_targets.extend(targets.cpu().tolist())
+            image_masks.extend(masks.cpu().numpy())
+
+            anomaly_score.extend(anomaly_score_i.cpu().tolist())
+            anomaly_map.extend(outputs[:, 1, :].cpu().numpy())
     # metrics
+    image_masks = np.array(image_masks)
+    anomaly_map = np.array(anomaly_map)
+
+    auroc_image = roc_auc_score(image_targets, anomaly_score)
+    auroc_pixel = roc_auc_score(image_masks.reshape(-1), anomaly_map.reshape(-1))
+    all_fprs, all_pros = compute_pro(
+        anomaly_maps=anomaly_map, ground_truth_maps=image_masks
+    )
+
+    aupro = trapezoid(all_fprs, all_pros, x_max=integration_limit)
+    aupro /= integration_limit  # metrics
     metrics = {
-        "AUROC-image": auroc_image_metric.compute().item(),
-        "AUROC-pixel": auroc_pixel_metric.compute().item(),
-        "AUPRO-pixel": aupro_pixel_metric.compute().item(),
+        "AUROC-image": auroc_image,
+        "AUROC-pixel": auroc_pixel,
+        "AUPRO-pixel": aupro,
     }
 
     _logger.info(
