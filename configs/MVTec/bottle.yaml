@@ -11,7 +11,7 @@ DATASET:
   normalize: False
 
 DATALOADER:
-  batch_size: 2
+  batch_size: 6
   num_workers: 4
 
 TRAIN:
