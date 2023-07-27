@@ -190,9 +190,13 @@ def training(
                     )
 
                     # save best model
-                    torch.save(
-                        model.state_dict(), os.path.join(savedir, f"best_model.pt")
-                    )
+                    for subnet in model:
+                        torch.save(
+                            subnet.state_dict(),
+                            os.path.join(
+                                savedir, f"best_{subnet.__class__.__name__}.pt"
+                            ),
+                        )
 
                     _logger.info(
                         "Best Score {0:.3%} to {1:.3%}".format(
@@ -215,8 +219,11 @@ def training(
     )
 
     # save latest model
-    torch.save(model.state_dict(), os.path.join(savedir, f"latest_model.pt"))
-
+    for subnet in model:
+        torch.save(
+            subnet.state_dict(),
+            os.path.join(savedir, f"latest_{subnet.__class__.__name__}.pt"),
+        )
     # save latest score
     state = {"latest_step": step}
     state.update(eval_log)
